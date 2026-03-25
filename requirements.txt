@@ -1,0 +1,39 @@
+# ── Core PDF parsing ──────────────────────────────────────────────────────
+pypdf>=4.0.0              # PDF reading, decryption, page/object access
+pdfplumber>=0.10.0        # Text/table extraction with layout info
+
+# ── Image analysis ────────────────────────────────────────────────────────
+Pillow>=10.0.0            # Image loading, ELA, noise analysis
+pdf2image>=1.17.0         # Convert PDF pages to PIL images for OCR
+# NOTE: pdf2image requires poppler-utils installed on your OS:
+#   Ubuntu/Debian: sudo apt-get install poppler-utils
+#   macOS:         brew install poppler
+#   Windows:       download from https://github.com/oschwartz10612/poppler-windows
+
+# ── OCR ───────────────────────────────────────────────────────────────────
+pytesseract>=0.3.10       # OCR engine Python wrapper
+# NOTE: pytesseract requires Tesseract OCR installed on your OS:
+#   Ubuntu/Debian: sudo apt-get install tesseract-ocr
+#   macOS:         brew install tesseract
+#   Windows:       https://github.com/UB-Mannheim/tesseract/wiki
+
+# ── PDF generation (heatmap overlays) ────────────────────────────────────
+reportlab>=4.0.0          # Draw coloured overlay rectangles on PDF pages
+
+# ── Web API ───────────────────────────────────────────────────────────────
+flask>=3.0.0              # REST API server
+flask-cors>=4.0.0         # CORS headers for frontend integration
+
+# ── Utilities ─────────────────────────────────────────────────────────────
+python-magic>=0.4.27      # MIME type detection (optional but recommended)
+# NOTE: python-magic requires libmagic:
+#   Ubuntu/Debian: sudo apt-get install libmagic1
+#   macOS:         brew install libmagic
+#   Windows:       pip install python-magic-bin (includes DLL)
+
+pymupdf>=1.23.0              # Crisp vector bounding box annotations (preferred over reportlab)
+
+# ── Machine Learning (CNN patch classifier) ───────────────────────────────
+scikit-learn>=1.3.0       # SVM + GradientBoosting for CNN patch classification
+numpy>=1.24.0             # Array operations (also needed by OpenCV)
+opencv-python>=4.8.0      # Gabor filters, DCT, connected components

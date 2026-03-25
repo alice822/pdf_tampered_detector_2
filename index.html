@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PDF Tamper Detector</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Inter","Segoe UI",system-ui,sans-serif;background:#f0f2f5;color:#1a1d23;min-height:100vh}
+
+header{background:#fff;border-bottom:1px solid #e5e7eb;padding:0 32px;height:56px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50}
+.logo{font-size:1rem;font-weight:700;color:#111}.logo span{color:#6366f1}
+.hpill{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:.75rem;color:#6b7280}
+.dot{width:7px;height:7px;border-radius:50%;background:#22c55e}
+.badge{background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-size:.67rem;font-weight:700;padding:2px 8px;border-radius:20px}
+
+.wrap{max-width:800px;margin:0 auto;padding:36px 16px 80px}
+.page-title{font-size:1.45rem;font-weight:800;margin-bottom:4px}
+.page-sub{font-size:.87rem;color:#6b7280;margin-bottom:28px}
+
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:24px;margin-bottom:20px}
+.drop{border:2px dashed #d1d5db;border-radius:10px;padding:36px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;position:relative;background:#fafafa}
+.drop:hover,.drop.over{border-color:#6366f1;background:#f5f3ff}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop-icon{font-size:2rem;margin-bottom:10px;display:block}
+.drop-main{font-size:.93rem;font-weight:600;color:#374151}
+.drop-sub{font-size:.78rem;color:#9ca3af;margin-top:5px}
+.drop-file{font-size:.82rem;color:#6366f1;font-weight:600;margin-top:6px;min-height:18px}
+.field-row{display:flex;align-items:center;gap:8px;margin-top:14px;border:1px solid #e5e7eb;border-radius:9px;padding:0 12px;background:#fff}
+.field-row input{flex:1;border:none;outline:none;padding:10px 0;font-size:.86rem;color:#374151;background:transparent}
+.field-row input::placeholder{color:#9ca3af}
+.eye-btn{background:none;border:none;cursor:pointer;font-size:.95rem;color:#9ca3af;padding:4px}
+.field-hint{font-size:.71rem;color:#9ca3af;margin-top:5px}
+.btn-check{width:100%;margin-top:14px;padding:13px;background:#6366f1;color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;transition:background .2s,opacity .2s}
+.btn-check:hover:not(:disabled){background:#4f46e5}
+.btn-check:disabled{opacity:.42;cursor:not-allowed}
+.prog{margin-top:12px;display:none}.prog.on{display:block}
+.prog-bar{height:3px;background:#e5e7eb;border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;width:5%;background:#6366f1;border-radius:99px;transition:width .5s ease}
+.prog-lbl{font-size:.73rem;color:#6b7280;margin-top:5px}
+
+.alert{padding:12px 16px;border-radius:9px;font-size:.84rem;display:flex;gap:9px;margin-bottom:14px}
+.alert.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.alert.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+
+/* Result — all white */
+.result{background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;animation:up .3s ease}
+@keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+.verdict{padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid #f3f4f6}
+.verdict.tampered{background:#fff5f5}
+.verdict.clean{background:#f0fdf4}
+.veyebrow{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:6px}
+.vtitle{font-size:1.28rem;font-weight:800;margin-bottom:5px}
+.vtitle.tampered{color:#dc2626}.vtitle.clean{color:#16a34a}
+.vtype{font-size:.81rem;color:#6b7280;margin-top:3px}
+
+.donut{position:relative;width:80px;height:80px;flex-shrink:0}
+.donut svg{transform:rotate(-90deg)}
+.donut .tr{fill:none;stroke:#e5e7eb;stroke-width:7}
+.donut .fi{fill:none;stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)}
+.donut-lbl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-num{font-size:1.1rem;font-weight:800;line-height:1}
+.donut-sub{font-size:.55rem;font-weight:600;color:#9ca3af;margin-top:1px;text-transform:uppercase}
+
+.metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));border-bottom:1px solid #f3f4f6}
+.metric{padding:14px 18px;border-right:1px solid #f3f4f6}
+.metric:last-child{border-right:none}
+.met-lbl{font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:3px}
+.met-val{font-size:.97rem;font-weight:700;color:#111}
+
+.section{padding:18px 28px;border-bottom:1px solid #f3f4f6}
+.sec-head{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:10px}
+
+.explain{padding:14px 16px;border-radius:9px;font-size:.8rem;line-height:1.65}
+.explain.clean-ex{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+.explain.tamper-ex{background:#fff5f5;border:1px solid #fecaca;color:#7f1d1d}
+.explain strong{font-weight:700}
+
+.finding{display:flex;gap:10px;padding:11px 14px;border-radius:9px;margin-bottom:7px;border-left:3px solid transparent}
+.finding.high{background:#fff5f5;border-left-color:#dc2626}
+.finding.med{background:#fffbeb;border-left-color:#f59e0b}
+.finding.low{background:#f5f3ff;border-left-color:#6366f1}
+.finding.info{background:#f9fafb;border-left-color:#d1d5db}
+.fbadge{font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0;margin-top:2px;text-transform:uppercase;letter-spacing:.04em;align-self:flex-start}
+.high .fbadge{background:#fee2e2;color:#dc2626}
+.med .fbadge{background:#fef3c7;color:#b45309}
+.low .fbadge{background:#ede9fe;color:#6366f1}
+.info .fbadge{background:#f3f4f6;color:#6b7280}
+.gen-info{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:.84rem}
+.gi-row{display:contents}.gi-lbl{color:#6b7280;font-weight:500}.gi-val{color:#111;word-break:break-all}
+.fcat{font-size:.82rem;font-weight:700;color:#111;margin-bottom:2px}
+.fdesc{font-size:.78rem;color:#4b5563;line-height:1.55}
+.fpage{font-size:.64rem;color:#6366f1;background:#ede9fe;padding:1px 6px;border-radius:20px;margin-left:5px;vertical-align:middle}
+
+.heatmap-row{padding:16px 28px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.btn-heat{padding:9px 18px;border-radius:9px;background:#fff;color:#6366f1;border:1.5px solid #c7d2fe;font-size:.83rem;font-weight:700;cursor:pointer;transition:background .2s;display:flex;align-items:center;gap:6px}
+.btn-heat:hover{background:#f5f3ff;border-color:#6366f1}
+.heat-hint{font-size:.73rem;color:#9ca3af}
+
+/* Raw output — white background */
+.raw-out{padding:16px 22px;background:#f8f9fa;border-top:1px solid #e5e7eb;font-family:"JetBrains Mono","Fira Code",monospace;font-size:.77rem;line-height:1.85;color:#374151;white-space:pre-wrap;word-break:break-word;max-height:240px;overflow-y:auto;border-radius:0 0 14px 14px}
+
+@media(max-width:520px){.verdict{flex-direction:column;align-items:flex-start}.metrics{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <span style="font-size:1.1rem">🔍</span>
+  <span class="logo">PDF<span>Guard</span></span>
+  <div class="hpill"><span class="dot"></span>Server ready<span class="badge">OCR ACTIVE</span></div>
+</header>
+
+<div class="wrap">
+  <div class="page-title">PDF Tamper Detector</div>
+  <div class="page-sub">Upload any PDF — get a clear verdict with exact reasons</div>
+
+  <div class="card">
+    <div class="drop" id="dropZone">
+      <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff"/>
+      <span class="drop-icon">📄</span>
+      <div class="drop-main" id="dropMain">Drag and drop your PDF here, or click to browse</div>
+      <div class="drop-sub">Supports PDF, JPG, PNG, WEBP · up to 50 MB</div>
+      <div class="drop-file" id="dropFile"></div>
+    </div>
+    <div class="field-row">
+      <input type="password" id="pwdInput" placeholder="Password — leave blank if not locked"/>
+      <button class="eye-btn" onclick="togglePwd()">👁</button>
+    </div>
+    <div class="field-hint">Common passwords are tried automatically if blank.</div>
+    <button class="btn-check" id="checkBtn" disabled onclick="runAnalysis()">Check Document</button>
+    <div class="prog" id="prog">
+      <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+      <div class="prog-lbl" id="progLbl">Analysing…</div>
+    </div>
+  </div>
+
+  <div id="alertArea"></div>
+  <div id="resultArea"></div>
+</div>
+
+<script>
+let file=null;
+const dz=document.getElementById('dropZone'),fi=document.getElementById('fileInput');
+const ALLOWED=['pdf','jpg','jpeg','png','webp','bmp','tiff','tif'];
+
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();
+  dz.classList.remove('over');
+  const f=e.dataTransfer.files[0];
+  if(!f)return;
+  const ext=f.name.split('.').pop().toLowerCase();
+  if(ALLOWED.includes(ext))setFile(f);
+  else showAlert('Please drop a PDF or image file (JPG, PNG, WEBP).','err');
+});
+
+fi.addEventListener('change',()=>{
+  const f=fi.files[0];
+  if(!f)return;
+  const ext=f.name.split('.').pop().toLowerCase();
+  if(ALLOWED.includes(ext))setFile(f);
+  else showAlert('Please upload a PDF or image file (JPG, PNG, WEBP).','err');
+});
+
+function setFile(f){file=f;document.getElementById('dropMain').textContent=f.name;document.getElementById('dropFile').textContent=(f.size/1024).toFixed(1)+' KB';document.getElementById('checkBtn').disabled=false;document.getElementById('alertArea').innerHTML='';document.getElementById('resultArea').innerHTML=''}
+function togglePwd(){const i=document.getElementById('pwdInput');i.type=i.type==='password'?'text':'password'}
+
+async function runAnalysis(){
+  if(!file)return;
+  setLoading(true,'Analysing document…');
+  document.getElementById('alertArea').innerHTML='';document.getElementById('resultArea').innerHTML='';
+  const form=new FormData();form.append('file',file);
+  const pwd=document.getElementById('pwdInput').value.trim();if(pwd)form.append('password',pwd);
+  try{
+    const res=await fetch('/analyze',{method:'POST',body:form});
+    const data=await res.json();
+    if(!res.ok||data.error){showAlert(data.error||'Analysis failed.','err');return;}
+    renderResult(data);
+  }catch(e){showAlert('Network error: '+e.message,'err');}
+  finally{setLoading(false);}
+}
+
+async function downloadHeatmap(){
+  if(!file)return;
+  setLoading(true,'Generating forensic heatmap…');
+  const form=new FormData();form.append('file',file);
+  try{
+    const res=await fetch('/analyze/heatmap',{method:'POST',body:form});
+    if(!res.ok){const err=await res.json().catch(()=>({error:'Heatmap failed.'}));showAlert(err.error||'Heatmap failed.','err');return;}
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='forensic_heatmap.pdf';a.click();URL.revokeObjectURL(url);
+    showAlert('Forensic heatmap downloaded — suspicious regions highlighted on each PDF page.','info');
+  }catch(e){showAlert('Error: '+e.message,'err');}
+  finally{setLoading(false);}
+}
+
+// Plain-language names for technical categories
+const PLAIN={
+  "Unnatural Text Weight":"Bold or heavy text found",
+  "Font Type Change":"Different font style detected",
+  "Content Anomaly":"Suspicious content in fields",
+  "Pixel-Level Anomaly":"Image inconsistency",
+  "Noise Inconsistency":"Image texture anomaly",
+  "Image Consistency":"Uneven image texture",
+  "Image Splice Detected":"Image sections appear joined",
+  "Background Mismatch":"Background inconsistency",
+  "Image Re-compression":"Document re-edited after creation",
+  "Sharp Text on Blurry Background":"Text added onto scanned image",
+  "Metadata Inconsistency":"Document edited after creation",
+  "OCR Anomaly":"Text quality inconsistency",
+  "AI-Generation Signal":"Possibly AI-generated text",
+  "Invisible Text":"Hidden text layer found",
+  "Embedded Script":"Executable code in document",
+  "Incremental Update":"Document modified after signing",
+};
+function plainCat(cat){return PLAIN[cat]||cat;}
+
+// Icons for each finding type
+const ICONS={
+  "Bold or heavy text found":"✏️",
+  "Different font style detected":"🔤",
+  "Suspicious content in fields":"📋",
+  "Image sections appear joined":"✂️",
+  "Text added onto scanned image":"🔍",
+  "Document edited after creation":"🕐",
+  "Hidden text layer found":"👁️",
+  "Executable code in document":"⚠️",
+  "Possibly AI-generated text":"🤖",
+  "default":"🔎"
+};
+function findingIcon(plain){return ICONS[plain]||ICONS["default"];}
+
+function renderResult(d){
+  const tam=d.tampered, score=d.risk_score, conf=d.confidence;
+  const findings=d.findings||[];
+  const info=d.document_info||{};
+  const rc=score>=60?'#dc2626':score>=35?'#f59e0b':'#16a34a';
+  const C=2*Math.PI*32, off=C*(1-score/100);
+
+  // General info
+  function infoRow(label,val){
+    if(!val||val==='(none)'||val===''||val==='unknown') return '';
+    return `<div class="gi-row"><span class="gi-lbl">${esc(label)}</span><span class="gi-val">${esc(val)}</span></div>`;
+  }
+  function fmtDate(raw){
+    if(!raw||raw.length<8) return '';
+    // PDF date format: D:YYYYMMDDHHmmSS
+    const m=raw.match(/D:(\d{4})(\d{2})(\d{2})/);
+    if(m) return `${m[3]}/${m[2]}/${m[1]}`;
+    return raw.substring(0,20);
+  }
+  const producer=info.producer||'';
+  const onlineEditor=['ilovepdf','smallpdf','pdf24','adobe','foxit','nitro','canva'].find(x=>producer.toLowerCase().includes(x));
+  const prodDisplay=producer?`${producer}${onlineEditor?' ⚠️ (online editor)':''}`:'—';
+
+  const generalHtml=`
+  <div class="section">
+    <div class="sec-head">📋 Document Information</div>
+    <div class="gen-info">
+      ${infoRow('Pages',String(d.total_pages||info.pages||'?'))}
+      ${infoRow('Producer',prodDisplay)}
+      ${infoRow('Creator',info.creator)}
+      ${infoRow('Author',info.author)}
+      ${infoRow('Title',info.title)}
+      ${infoRow('Created',fmtDate(info.created))}
+      ${infoRow('Modified',fmtDate(info.modified))}
+      ${infoRow('Encrypted',info.encrypted?'Yes':'No')}
+      ${infoRow('OCR Used',d.ocr_used?'Yes':'No')}
+      ${infoRow('Processing',d.processing_time+'s')}
+      ${infoRow('File hash',d.file_hash?d.file_hash.substring(0,16)+'…':'')}
+    </div>
+  </div>`;
+
+  // Findings with specific reason
+  const PLAIN={
+    "Unnatural Text Weight":"Bold or heavy text inserted",
+    "Font Type Change":"Different font style detected",
+    "Content Anomaly":"Suspicious field values",
+    "Pixel-Level Anomaly":"Image inconsistency",
+    "Noise Inconsistency":"Image texture anomaly",
+    "Image Consistency":"Uneven image texture",
+    "Image Splice Detected":"Image sections appear joined",
+    "Background Mismatch":"Background inconsistency",
+    "Image Re-compression":"Document re-edited after creation",
+    "Sharp Text on Blurry Background":"Text added onto scanned image",
+    "Metadata Inconsistency":"Document edited after creation",
+    "OCR Anomaly":"Text quality inconsistency",
+    "AI-Generation Signal":"Possibly AI-generated text",
+    "Invisible Text":"Hidden text layer found",
+    "Missing Security Feature":"Missing security feature",
+  };
+  const ICONS={
+    "Bold or heavy text inserted":"✏️",
+    "Different font style detected":"🔤",
+    "Suspicious field values":"📋",
+    "Image sections appear joined":"✂️",
+    "Text added onto scanned image":"🔍",
+    "Document edited after creation":"🕐",
+    "Hidden text layer found":"👁️",
+    "Missing security feature":"🔒",
+    "default":"🔎"
+  };
+
+  const findingsHtml=findings.length>0?findings.map(f=>{
+    const sev=f.severity>=0.7?'high':f.severity>=0.4?'med':'low';
+    const lbl=sev==='high'?'HIGH':sev==='med'?'MED':'LOW';
+    const pg=f.page?`<span class="fpage">p.${f.page}</span>`:'';
+    const pname=PLAIN[f.category]||f.category;
+    const icon=ICONS[pname]||ICONS["default"];
+    // Extract the most specific reason from description
+    const firstSentence=f.description.split('.')[0]+'.';
+    return `<div class="finding ${sev}">
+      <div>
+        <div class="fcat">${icon} ${esc(pname)} ${pg}</div>
+        <div class="fdesc">${esc(firstSentence)}</div>
+      </div>
+    </div>`;
+  }).join(''):`<div style="padding:24px;text-align:center;color:#9ca3af;font-size:.87rem">🛡️ No suspicious indicators found.</div>`;
+
+  // Verdict summary
+  const verdictClass=tam?'tampered':'clean';
+  const verdictIcon=tam?'⚠':'✔';
+  const verdictText=tam?'Document Tampered':'Document Appears Genuine';
+
+  // Key reasons (high + med findings, first sentence only)
+  const keyFindings=[...findings.filter(f=>f.severity>=0.7),...findings.filter(f=>f.severity>=0.4&&f.severity<0.7)].slice(0,3);
+  const reasonsHtml=tam&&keyFindings.length>0
+    ?`<ul style="margin:8px 0 0 0;padding-left:18px;font-size:.85rem;line-height:1.9">${keyFindings.map(f=>{
+        const pname=PLAIN[f.category]||f.category;
+        const icon=ICONS[pname]||ICONS["default"];
+        const rawWords=(f.evidence&&f.evidence.bold_words)||[];
+        const cleanWords=rawWords.filter(w=>w&&w.replace(/[^A-Za-z0-9]/g,'').length>=4);
+        const words=cleanWords.length?` — <strong>${esc(cleanWords.slice(0,4).join(', '))}</strong>`:'';
+        return `<li>${icon} ${esc(pname)}${words}</li>`;
+      }).join('')}</ul>`
+    :'';
+
+  const explainHtml=tam
+    ?`<div class="section"><div class="sec-head">Why this was flagged</div>
+       <div class="explain tamper-ex">${reasonsHtml||'Multiple suspicious signals detected.'}</div></div>`
+    :`<div class="section"><div class="sec-head">Why this appears genuine</div>
+       <div class="explain clean-ex">
+         <strong>Risk score ${score.toFixed(0)}/100</strong> — below the tampering threshold.<br>
+         No suspicious indicators found across all checks.
+         <div style="margin-top:8px;font-size:.82rem;color:#6b7280">
+           Checked: visual consistency, font weight, text content, document metadata, image integrity
+         </div>
+       </div></div>`;
+
+  document.getElementById('resultArea').innerHTML=`
+<div class="result">
+
+  ${generalHtml}
+
+  <div class="verdict ${verdictClass}">
+    <div>
+      <div class="veyebrow">Analysis Result</div>
+      <div class="vtitle ${verdictClass}">${verdictIcon} ${verdictText}</div>
+      <div class="vtype">${esc(d.tamper_type)}</div>
+    </div>
+    <div class="donut">
+      <svg width="80" height="80" viewBox="0 0 72 72">
+        <circle class="tr" cx="36" cy="36" r="32"/>
+        <circle class="fi" cx="36" cy="36" r="32" stroke="${rc}"
+                stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/>
+      </svg>
+      <div class="donut-lbl"><span class="donut-num" style="color:${rc}">${score.toFixed(0)}</span><span class="donut-sub">Risk</span></div>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="met-lbl">Confidence</div><div class="met-val" style="color:${rc}">${conf.toFixed(0)}%</div></div>
+    <div class="metric"><div class="met-lbl">Pages</div><div class="met-val">${d.total_pages}</div></div>
+    <div class="metric"><div class="met-lbl">Findings</div><div class="met-val">${findings.length}</div></div>
+    <div class="metric"><div class="met-lbl">Encrypted</div><div class="met-val">${d.encrypted?'Yes':'No'}</div></div>
+    <div class="metric"><div class="met-lbl">OCR Used</div><div class="met-val">${d.ocr_used?'Yes':'No'}</div></div>
+    <div class="metric"><div class="met-lbl">Time</div><div class="met-val">${d.processing_time}s</div></div>
+  </div>
+
+  ${explainHtml}
+
+  ${findings.length>0?`<div class="section"><div class="sec-head">Findings (${findings.length})</div>${findingsHtml}</div>`:`<div class="section">${findingsHtml}</div>`}
+
+  ${d.heatmap_available?`
+  <div class="heatmap-row">
+    <button class="btn-heat" onclick="downloadHeatmap()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> Download Forensic Heatmap</button>
+    <span class="heat-hint">Suspicious regions highlighted directly on the PDF pages</span>
+  </div>`:''}
+
+  <pre class="raw-out">${esc(d.human_readable)}</pre>
+</div>`;
+}
+
+function _buildExplain(d,findings){
+  const tam=d.tampered;
+  const high=findings.filter(f=>f.severity>=0.7);
+  const med=findings.filter(f=>f.severity>=0.4&&f.severity<0.7);
+  const low=findings.filter(f=>f.severity>=0.2&&f.severity<0.4);
+  if(tam){
+    const reasons=[...high,...med].slice(0,3).map(f=>{
+      const pname=plainCat(f.category);
+      const icon=findingIcon(pname);
+      const page=f.page?` (page ${f.page})`:'';
+      // Show only first sentence of description
+      const shortDesc=f.description.split('. ')[0]+'.';
+      return `<div style="margin-bottom:6px">${icon} <strong>${esc(pname)}${page}</strong> — ${esc(shortDesc)}</div>`;
+    }).join('');
+    return `<div class="section"><div class="sec-head">Why this was flagged</div><div class="explain tamper-ex">${reasons||'Multiple suspicious signals detected.'}</div></div>`;
+  }else{
+    // For clean docs, explain what we checked
+    const notes=[];
+    if(low.length>0) notes.push(`${low.length} minor note(s) found that appear in many legitimate documents and are not signs of tampering.`);
+    const note=notes.length>0?notes.join(' '):'No suspicious indicators found across all checks.';
+    const checks=`<div style="margin-top:10px;font-size:.82rem;color:#6b7280">
+      Checked: visual consistency, font weight, text content, document metadata, image integrity
+    </div>`;
+    return `<div class="section"><div class="sec-head">Why this appears genuine</div><div class="explain clean-ex">
+      <strong>Risk score ${d.risk_score.toFixed(0)}/100</strong> — below the tampering threshold.<br>${note}${checks}
+    </div></div>`;
+  }
+}
+
+function showAlert(msg,type){document.getElementById('alertArea').innerHTML=`<div class="alert ${type}"><span>${type==='err'?'⚠️':'ℹ️'}</span><span>${esc(msg)}</span></div>`}
+function setLoading(on,lbl=''){
+  const prog=document.getElementById('prog'),fill=document.getElementById('progFill'),l=document.getElementById('progLbl'),btn=document.getElementById('checkBtn');
+  prog.classList.toggle('on',on);
+  if(on){fill.style.width='5%';setTimeout(()=>fill.style.width='72%',80);l.textContent=lbl;}
+  else{fill.style.width='100%';setTimeout(()=>prog.classList.remove('on'),400);}
+  btn.disabled=on||!file;
+}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+</script>
+</body>
+</html>
